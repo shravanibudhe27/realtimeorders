@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <title>Real-Time Order Dashboard</title>
+
+    <!-- SockJS -->
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+
+    <!-- STOMP -->
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        #status {
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .event-card {
+            background: white;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .created {
+            border-left: 6px solid green;
+        }
+
+        .updated {
+            border-left: 6px solid orange;
+        }
+
+        .deleted {
+            border-left: 6px solid red;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<h1>Live Order Event Dashboard</h1>
+
+<div id="status">
+    Connecting...
+</div>
+
+<div id="events"></div>
+
+<script>
+
+    let stompClient = null;
+
+    function connect() {
+
+        const socket = new SockJS('/ws');
+
+        stompClient = Stomp.over(socket);
+
+        stompClient.connect({}, function(frame) {
+
+            document.getElementById('status').innerHTML =
+                '🟢 WebSocket Connected';
+
+            console.log('Connected: ' + frame);
+
+            stompClient.subscribe(
+                '/topic/orders',
+
+                function(message) {
+
+                    const event =
+                        JSON.parse(message.body);
+
+                    displayEvent(event);
+                }
+            );
+
+        }, function(error) {
+
+            document.getElementById('status').innerHTML =
+                '🔴 Reconnecting...';
+
+            console.error(error);
+
+            setTimeout(connect, 3000);
+        });
+    }
+
+    function displayEvent(event) {
+
+        const container =
+            document.getElementById('events');
+
+        const card =
+            document.createElement('div');
+
+        let className = '';
+
+        if(event.eventType === 'ORDER_CREATED') {
+
+            className = 'created';
+        }
+        else if(event.eventType === 'ORDER_UPDATED') {
+
+            className = 'updated';
+        }
+        else {
+
+            className = 'deleted';
+        }
+
+        card.className =
+            'event-card ' + className;
+
+        card.innerHTML = `
+
+            <h3>${event.eventType}</h3>
+
+            <p>
+                <b>Order ID:</b>
+                ${event.data.id}
+            </p>
+
+            <p>
+                <b>Customer:</b>
+                ${event.data.customerName}
+            </p>
+
+            <p>
+                <b>Product:</b>
+                ${event.data.productName}
+            </p>
+
+            <p>
+                <b>Status:</b>
+                ${event.data.status}
+            </p>
+
+            <p>
+                <b>Updated At:</b>
+                ${event.data.updatedAt}
+            </p>
+
+            <p>
+                <b>Event Time:</b>
+                ${event.timestamp}
+            </p>
+
+        `;
+
+        container.prepend(card);
+    }
+
+    connect();
+
+</script>
+
+</body>
+</html>
